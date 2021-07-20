@@ -1,0 +1,75 @@
+# Search grammar.
+
+@class SearchParser
+
+@subheader """# Grammar for searching for protocols or general annotated documents
+
+from typing import Union
+from bson import SON
+from mongoengine.queryset.visitor import Q, QCombination
+
+def acc_text(*acc):
+    \"\"\"
+    Merge all fulltext pieces into one single fulltext query (can only be used once)
+    and returned it combined with whatever else queries there are.
+    \"\"\"
+    text = []
+    query = None
+    for x in acc:
+        if isinstance(x, (Q, QCombination)):
+            if query:
+                query &= x
+            else:
+                query = x
+        elif isinstance(x, list):
+            text.extend(x)
+        else:
+            raise ValueError("neither Q nor list!\\n  {}: {}\\n  ( {} )".format(type(x), x, repr(acc)))
+    if len(text) > 0:
+        q_text = Q(__raw__={"$text": SON({"$search": ' '.join(text)})})
+        if query:
+            query &= q_text
+        else:
+            query = q_text
+    return query
+
+def negate(atom: Union[Q, QCombination]) -> Union[Q, QCombination]:
+    if isinstance(atom, QCombination):
+        atom.operation = atom.OR if atom.operation == atom.AND else atom.AND
+        for i in range(len(atom.children)):
+            atom.children[i] = negate(atom.children[i])
+    elif isinstance(atom, Q):
+        for k, v in atom.query.items():
+            if '$not' in v:
+                atom.query[k] = v['$not']
+            else:
+                atom.query[k] = {'$not': v}
+    else:
+        raise ValueError('atom neither Q nor QCombination: {}: {}'.format(type(atom), repr(atom)))
+    return atom
+"""
+
+@trailer """
+# The end."""
+
+
+start: expr ENDMARKER  { expr }
+expr: term_or_text acc=term_or_text*  { acc_text(term_or_text, *acc) }
+term_or_text: term  { term }
+    | fulltext      { fulltext }
+term: and_  { and_ }
+    | or_   { or_ }
+    | atom  { atom }
+and_: atom acc=(':' 'and' atom { atom } )+  { atom & acc[0] if len(acc) else atom }
+or_: atom acc=(':' 'or' atom { atom } )+    { atom | acc[0] if len(acc) else atom }
+atom: not_          { not_ }
+    | keyval        { keyval }
+    | '(' term ')'  { term }
+not_: ':' 'not' atom    { negate(atom) }
+keyval: ':' WORD value  { Q(**{word.string: value}) }
+value: WORD     { word.string }
+    | STRING    { string.string }
+    | NUMBER    { float(number.string) }
+    | list      { list }
+list: '[' value acc=(',' value { value } )* ']'    { [value] + acc }
+fulltext: text=(STRING { string.string } | NUMBER { number.string } | WORD { word.string } )+    { text }

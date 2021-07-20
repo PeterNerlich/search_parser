@@ -1,0 +1,17 @@
+peg_extension/*.o
+peg_extension/*.so
+peg_extension/parse.c
+parse.py
+
+data/pypi/
+
+**/__pycache__
+
+.dmypy.json
+.mypy_cache
+.pytest_cache
+.envrc
+.vscode
+requirements-local.*
+cpython
+dset.db
