@@ -5,6 +5,7 @@
 @subheader """# Grammar for searching for protocols or general annotated documents
 
 from typing import Union
+from functools import reduce
 from bson import SON
 from mongoengine.queryset.visitor import Q, QCombination
 
@@ -60,8 +61,8 @@ term_or_text: term  { term }
 term: and_  { and_ }
     | or_   { or_ }
     | atom  { atom }
-and_: atom acc=(':' 'and' atom { atom } )+  { atom & acc[0] if len(acc) else atom }
-or_: atom acc=(':' 'or' atom { atom } )+    { atom | acc[0] if len(acc) else atom }
+and_: atom acc=(':' 'and' atom { atom } )+  { reduce(lambda a,b: a & b, acc, atom) }
+or_: atom acc=(':' 'or' atom { atom } )+    { reduce(lambda a,b: a | b, acc, atom) }
 atom: not_          { not_ }
     | keyval        { keyval }
     | '(' term ')'  { term }

@@ -10,6 +10,7 @@ from search_parser.parser import Parser
 # Grammar for searching for protocols or general annotated documents
 
 from typing import Union
+from functools import reduce
 from bson import SON
 from mongoengine.queryset.visitor import Q, QCombination
 
@@ -161,7 +162,7 @@ class SearchParser(Parser):
             and (acc := self.loop(True, self._synthetic_rule_0)) is not None
         ):
             self.show_index(0, 0, 2)
-            retval = atom & acc [ 0 ] if len ( acc ) else atom
+            retval = reduce ( lambda a , b : a & b , acc , atom )
             if retval is not None:
                 return retval
         self.reset(pos)
@@ -179,7 +180,7 @@ class SearchParser(Parser):
             and (acc := self.loop(True, self._synthetic_rule_1)) is not None
         ):
             self.show_index(0, 0, 2)
-            retval = atom | acc [ 0 ] if len ( acc ) else atom
+            retval = reduce ( lambda a , b : a | b , acc , atom )
             if retval is not None:
                 return retval
         self.reset(pos)
